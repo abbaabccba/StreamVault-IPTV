@@ -44,6 +44,7 @@ fun TvClickableSurface(
 ) {
     Surface(
         onClick = onClick,
+        onLongClick = onLongClick,
         modifier = modifier.mouseClickable(onClick = onClick, enabled = enabled, onLongClick = onLongClick),
         enabled = enabled,
         shape = shape,

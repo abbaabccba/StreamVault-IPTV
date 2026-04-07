@@ -113,12 +113,14 @@ fun VodClassicSplitLayout(
                                 color = AppColors.BrandStrong
                             )
                         }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = category.count.toString(),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = AppColors.TextSecondary
-                        )
+                        if (category.count > 0) {
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = category.count.toString(),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = AppColors.TextSecondary
+                            )
+                        }
                     }
                 }
             }

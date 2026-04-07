@@ -46,10 +46,12 @@ import com.streamvault.app.R
 import com.streamvault.app.device.rememberIsTelevisionDevice
 import com.streamvault.app.ui.components.rememberCrossfadeImageModel
 import com.streamvault.app.ui.components.shell.ContentMetadataStrip
+import com.streamvault.app.ui.components.shell.ExternalRatingsStrip
 import com.streamvault.app.ui.components.shell.StatusPill
 import com.streamvault.app.ui.design.AppColors
 import com.streamvault.app.ui.design.requestFocusSafely
 import com.streamvault.app.ui.model.formatVodRatingLabel
+import com.streamvault.domain.model.ExternalRatings
 import com.streamvault.domain.model.Movie
 import com.streamvault.app.ui.interaction.TvClickableSurface
 import com.streamvault.app.ui.interaction.TvButton
@@ -94,6 +96,8 @@ fun MovieDetailScreen(
             MovieDetailContent(
                 movie = movie,
                 hasResume = uiState.hasResume,
+                externalRatings = uiState.externalRatings,
+                isLoadingExternalRatings = uiState.isLoadingExternalRatings,
                 onPlay = { onPlay(movie) },
                 onBack = onBack
             )
@@ -105,6 +109,8 @@ fun MovieDetailScreen(
 private fun MovieDetailContent(
     movie: Movie,
     hasResume: Boolean,
+    externalRatings: ExternalRatings,
+    isLoadingExternalRatings: Boolean,
     onPlay: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -185,6 +191,8 @@ private fun MovieDetailContent(
                         MovieDetailHeroText(
                             movie = movie,
                             hasResume = hasResume,
+                            externalRatings = externalRatings,
+                            isLoadingExternalRatings = isLoadingExternalRatings,
                             onPlay = onPlay,
                             playButtonFocusRequester = playButtonFocusRequester,
                             onPlayTrailer = {
@@ -203,6 +211,8 @@ private fun MovieDetailContent(
                         MovieDetailHeroText(
                             movie = movie,
                             hasResume = hasResume,
+                            externalRatings = externalRatings,
+                            isLoadingExternalRatings = isLoadingExternalRatings,
                             onPlay = onPlay,
                             playButtonFocusRequester = playButtonFocusRequester,
                             onPlayTrailer = {
@@ -244,6 +254,8 @@ private fun MoviePoster(
 private fun MovieDetailHeroText(
     movie: Movie,
     hasResume: Boolean,
+    externalRatings: ExternalRatings,
+    isLoadingExternalRatings: Boolean,
     onPlay: () -> Unit,
     playButtonFocusRequester: FocusRequester,
     onPlayTrailer: () -> Unit,
@@ -282,6 +294,11 @@ private fun MovieDetailHeroText(
                 movie.duration.orEmpty(),
                 movie.genre.orEmpty()
             )
+        )
+
+        ExternalRatingsStrip(
+            ratings = externalRatings,
+            isLoading = isLoadingExternalRatings
         )
 
         MovieFactGrid(movie = movie)

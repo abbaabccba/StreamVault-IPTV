@@ -1,4 +1,4 @@
-package com.streamvault.app.ui.screens.multiview
+﻿package com.streamvault.app.ui.screens.multiview
 
 import android.app.Activity
 import android.view.View
@@ -528,7 +528,7 @@ private fun MultiViewControlHud(
                 color = Color.White.copy(alpha = 0.86f),
                 style = MaterialTheme.typography.labelMedium
             )
-            Text(text = "•", color = Color.White.copy(alpha = 0.42f))
+            Text(text = "Γאó", color = Color.White.copy(alpha = 0.42f))
             Text(
                 text = stringResource(
                     R.string.multiview_telemetry_snapshot,

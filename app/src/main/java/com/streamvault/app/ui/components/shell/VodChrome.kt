@@ -285,12 +285,14 @@ fun VodCategoryPickerDialog(
                                             color = Primary
                                         )
                                     }
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = category.count.toString(),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = OnSurfaceDim
-                                    )
+                                    if (category.count > 0) {
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = category.count.toString(),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = OnSurfaceDim
+                                        )
+                                    }
                                 }
                             }
                         }

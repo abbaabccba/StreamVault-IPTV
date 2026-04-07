@@ -86,6 +86,7 @@ fun DashboardScreen(
     onNavigate: (String) -> Unit,
     onAddProvider: () -> Unit,
     onChannelClick: (Channel) -> Unit,
+    onFavoriteChannelClick: (Channel) -> Unit,
     onMovieClick: (Movie) -> Unit,
     onSeriesClick: (Series) -> Unit,
     onPlaybackHistoryClick: (PlaybackHistory) -> Unit,
@@ -154,7 +155,7 @@ fun DashboardScreen(
                         title = stringResource(R.string.dashboard_favorite_channels),
                         channels = uiState.favoriteChannels,
                         onSeeAll = { onNavigate(Routes.liveTv(com.streamvault.domain.model.VirtualCategoryIds.FAVORITES)) },
-                        onChannelClick = onChannelClick
+                        onChannelClick = onFavoriteChannelClick
                     )
 
                     DashboardHomeSection.RECENT_CHANNELS -> CategoryRow(

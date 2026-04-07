@@ -42,6 +42,7 @@ import com.streamvault.app.ui.components.SeriesCard
 import com.streamvault.app.ui.components.TvEmptyState
 import com.streamvault.app.ui.components.shell.AppNavigationChrome
 import com.streamvault.app.ui.components.shell.AppScreenScaffold
+import com.streamvault.app.ui.design.requestFocusSafely
 import com.streamvault.app.ui.theme.*
 import com.streamvault.domain.manager.ParentalControlManager
 import com.streamvault.domain.model.Channel
@@ -276,7 +277,7 @@ fun SearchScreen(
     }
 
     LaunchedEffect(Unit) {
-        runCatching { searchFocusRequester.requestFocus() }
+        searchFocusRequester.requestFocusSafely(tag = "SearchScreen", target = "Search field")
     }
 
     LaunchedEffect(initialQuery) {
@@ -288,7 +289,7 @@ fun SearchScreen(
 
     LaunchedEffect(showPinDialog) {
         if (!showPinDialog) {
-            runCatching { searchFocusRequester.requestFocus() }
+            searchFocusRequester.requestFocusSafely(tag = "SearchScreen", target = "Search field")
         }
     }
 

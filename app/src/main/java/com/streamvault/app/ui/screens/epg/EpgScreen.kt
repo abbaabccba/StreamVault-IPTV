@@ -32,6 +32,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -52,16 +54,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
@@ -84,6 +90,7 @@ import com.streamvault.app.ui.components.ChannelLogoBadge
 import com.streamvault.app.navigation.Routes
 import com.streamvault.app.ui.components.SelectionChip
 import com.streamvault.app.ui.components.SelectionChipRow
+import kotlinx.coroutines.launch
 import com.streamvault.app.ui.components.dialogs.PinDialog
 import com.streamvault.app.ui.components.shell.AppNavigationChrome
 import com.streamvault.app.ui.components.shell.AppScreenScaffold
@@ -754,36 +761,71 @@ private fun GuideSearchField(
     onSearch: ((String) -> Unit)? = null,
     onActivated: (() -> Unit)? = null
 ) {
-    var isFocused by remember { mutableStateOf(false) }
+    val isTelevisionDevice = rememberIsTelevisionDevice()
+    var hasContainerFocus by remember { mutableStateOf(false) }
+    var hasInputFocus by remember { mutableStateOf(false) }
+    var acceptsInput by remember(isTelevisionDevice) { mutableStateOf(!isTelevisionDevice) }
+    var textFieldValue by remember {
+        mutableStateOf(TextFieldValue(text = value, selection = TextRange(value.length)))
+    }
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val view = LocalView.current
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val inputFocusRequester = remember { FocusRequester() }
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
     var pendingKeyboardRequest by remember { mutableStateOf(0) }
     val inputMethodManager = remember(context) {
         context.getSystemService(InputMethodManager::class.java)
     }
+    val isFocused = hasContainerFocus || hasInputFocus
+
+    fun requestBringIntoView(delayMillis: Long = 0L) {
+        coroutineScope.launch {
+            if (delayMillis > 0) {
+                kotlinx.coroutines.delay(delayMillis)
+            }
+            runCatching { bringIntoViewRequester.bringIntoView() }
+        }
+    }
 
     fun requestKeyboard() {
+        if (!isTelevisionDevice) {
+            acceptsInput = true
+            inputFocusRequester.requestFocus()
+            view.post {
+                val focusedView = view.findFocus() ?: view
+                focusedView.requestFocus()
+                keyboardController?.show()
+                inputMethodManager?.showSoftInput(focusedView, InputMethodManager.SHOW_IMPLICIT)
+            }
+            onActivated?.invoke()
+            requestBringIntoView()
+            requestBringIntoView(180)
+            return
+        }
+        acceptsInput = true
         pendingKeyboardRequest += 1
         onActivated?.invoke()
+        requestBringIntoView()
     }
 
     LaunchedEffect(autoRequestFocus) {
         if (autoRequestFocus) {
-            requestKeyboard()
+            focusRequester.requestFocus()
         }
     }
 
     LaunchedEffect(refocusToken) {
         if (refocusToken > 0) {
-            requestKeyboard()
+            focusRequester.requestFocus()
         }
     }
 
     LaunchedEffect(pendingKeyboardRequest) {
-        if (pendingKeyboardRequest <= 0) return@LaunchedEffect
-        focusRequester.requestFocus()
+        if (!isTelevisionDevice || pendingKeyboardRequest <= 0) return@LaunchedEffect
+        inputFocusRequester.requestFocus()
         kotlinx.coroutines.delay(80)
         view.post {
             val focusedView = view.findFocus() ?: view
@@ -791,16 +833,27 @@ private fun GuideSearchField(
             keyboardController?.show()
             inputMethodManager?.showSoftInput(focusedView, InputMethodManager.SHOW_IMPLICIT)
         }
+        requestBringIntoView(120)
     }
 
-    LaunchedEffect(isFocused) {
-        if (!isFocused) return@LaunchedEffect
-        kotlinx.coroutines.delay(50)
-        view.post {
-            val focusedView = view.findFocus() ?: view
-            focusedView.requestFocus()
-            keyboardController?.show()
-            inputMethodManager?.showSoftInput(focusedView, InputMethodManager.SHOW_IMPLICIT)
+    LaunchedEffect(value) {
+        if (value != textFieldValue.text) {
+            val coercedSelectionStart = textFieldValue.selection.start.coerceIn(0, value.length)
+            val coercedSelectionEnd = textFieldValue.selection.end.coerceIn(0, value.length)
+            val coercedComposition = textFieldValue.composition?.let { composition ->
+                val compositionStart = composition.start.coerceIn(0, value.length)
+                val compositionEnd = composition.end.coerceIn(0, value.length)
+                if (compositionStart <= compositionEnd) {
+                    TextRange(compositionStart, compositionEnd)
+                } else {
+                    null
+                }
+            }
+            textFieldValue = textFieldValue.copy(
+                text = value,
+                selection = TextRange(coercedSelectionStart, coercedSelectionEnd),
+                composition = coercedComposition
+            )
         }
     }
 
@@ -808,7 +861,11 @@ private fun GuideSearchField(
         onClick = {
             requestKeyboard()
         },
-        modifier = modifier.height(40.dp),
+        modifier = modifier
+            .height(40.dp)
+            .focusRequester(focusRequester)
+            .bringIntoViewRequester(bringIntoViewRequester)
+            .onFocusChanged { hasContainerFocus = it.isFocused },
         colors = ClickableSurfaceDefaults.colors(
             containerColor = if (isFocused) SurfaceHighlight else SurfaceElevated,
             focusedContainerColor = SurfaceHighlight,
@@ -849,25 +906,64 @@ private fun GuideSearchField(
                     )
                 }
                 BasicTextField(
-                    value = value,
-                    onValueChange = onValueChange,
+                    value = textFieldValue,
+                    onValueChange = { updatedValue ->
+                        textFieldValue = updatedValue
+                        if (updatedValue.text != value) {
+                            onValueChange(updatedValue.text)
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .focusRequester(focusRequester)
+                        .focusRequester(inputFocusRequester)
+                        .focusProperties {
+                            canFocus = !isTelevisionDevice || acceptsInput
+                            if (isTelevisionDevice && acceptsInput) {
+                                left = FocusRequester.Cancel
+                                right = FocusRequester.Cancel
+                            }
+                        }
+                        .onPreviewKeyEvent { event ->
+                            if (!isTelevisionDevice || !acceptsInput || event.nativeKeyEvent.action != android.view.KeyEvent.ACTION_DOWN) {
+                                return@onPreviewKeyEvent false
+                            }
+                            val cursor = textFieldValue.selection.end
+                            when (event.nativeKeyEvent.keyCode) {
+                                android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
+                                    val nextCursor = (cursor - 1).coerceAtLeast(0)
+                                    textFieldValue = textFieldValue.copy(selection = TextRange(nextCursor))
+                                    true
+                                }
+                                android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                                    val nextCursor = (cursor + 1).coerceAtMost(textFieldValue.text.length)
+                                    textFieldValue = textFieldValue.copy(selection = TextRange(nextCursor))
+                                    true
+                                }
+                                else -> false
+                            }
+                        }
                         .onFocusChanged {
-                            isFocused = it.isFocused
                             if (it.isFocused) {
-                                onActivated?.invoke()
+                                hasInputFocus = true
+                                requestBringIntoView(120)
+                            } else {
+                                hasInputFocus = false
+                                if (isTelevisionDevice) {
+                                    acceptsInput = false
+                                }
+                                keyboardController?.hide()
                             }
                         },
                     textStyle = MaterialTheme.typography.bodySmall.copy(color = OnSurface),
                     singleLine = true,
                     cursorBrush = SolidColor(Primary),
+                    readOnly = isTelevisionDevice && !acceptsInput,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(onSearch = {
                         focusManager.clearFocus(force = true)
+                        acceptsInput = false
                         keyboardController?.hide()
-                        onSearch?.invoke(value.trim())
+                        onSearch?.invoke(textFieldValue.text.trim())
                     })
                 )
             }
